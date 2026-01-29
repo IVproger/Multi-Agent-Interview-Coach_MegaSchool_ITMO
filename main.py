@@ -9,12 +9,12 @@ from agent.graph import build_graph
 def main():
     print("=== Мульти-Агентная Тренировка Интервью ===")
     
-    # 1. Сбор информации о кандидате
+    # Сбор информации о кандидате
     print("\nПожалуйста, укажите ваши данные:")
     name = input("Имя: ") or "Кандидат"
     position = input("Позиция (например, Backend Developer): ") or "Кандидат не указал позицию"
     
-    # Проверить что пользователь ввел корректный грейд 
+    # Проверка корректности введенного грейда
     valid_grades = ["Junior", "Middle", "Senior"]
     while True:
         grade = input("Целевой грейд (Junior/Middle/Senior): ") or "Junior"
@@ -25,7 +25,7 @@ def main():
 
     experience = input("Кратко об опыте: ") or "У меня нет опыта. И я уставил это поле "
     
-    # 2. Инициализация состояния
+    # Инициализация состояния системы
     initial_state_config = {
         "participant_name": name,
         "session_meta": {
@@ -58,6 +58,7 @@ def main():
         print(f"\n[Interviewer]: {last_msg.content}")
     
     while True:
+
         # Проверка остановки
         if current_state.get("status") in ["stop_requested", "finished"]:
             break
@@ -72,8 +73,6 @@ def main():
             
         # Поддержка русских и английских команд остановки
         if user_input.lower() in ["exit", "quit", "stop interview", "стоп", "стоп интервью", "выход", "стоп игра. давай фидбэк."]:
-            # Мы хотим, чтобы логика графа обработала это через Ментора.
-            # Если пользователь пишет "стоп", Ментор должен распознать это и установить флаг.
             pass
         
         # Добавляем сообщение пользователя в список сообщений состояния
@@ -92,19 +91,24 @@ def main():
 
     # Логика генерации отчета
     if current_state.get("final_feedback"):
-        feedback = current_state["final_feedback"]
-        print("\n=== РЕЗУЛЬТАТЫ ИНТЕРВЬЮ ===")
-        print(f"Грейд: {feedback.get('grade')}")
-        print(f"Рекомендация: {feedback.get('hiring_recommendation')}")
-        print(f"Уверенность: {feedback.get('confidence_score')}%")
+        feedback_str = current_state["final_feedback"]   
+        try:
+            feedback_dict = json.loads(feedback_str)
+            print("\n=== РЕЗУЛЬТАТЫ ИНТЕРВЬЮ ===")
+            print(f"Грейд: {feedback_dict.get('grade')}")
+            print(f"Рекомендация: {feedback_dict.get('hiring_recommendation')}")
+            print(f"Уверенность: {feedback_dict.get('confidence_score')}%")
+        except:
+             print("\n=== РЕЗУЛЬТАТЫ ИНТЕРВЬЮ ===")
+             print("Отчет получен (сырой формат).")
+
         print("\nПолный отчет сохранен в 'interview_log.json'.")
         
-        # Сохранение в JSON
+        # Сохранение в JSON  
         log_data = {
             "participant_name": name,
-            "session_meta": current_state["session_meta"],
             "turns": current_state["turns"],
-            "final_feedback": feedback
+            "final_feedback": feedback_dict
         }
         
         with open("interview_log.json", "w", encoding="utf-8") as f:

@@ -9,13 +9,13 @@ def route_mentor(state: InterviewState):
 
 def route_interviewer(state: InterviewState):
     if state.get("call_mentor", True):
-        return "mentor_node" # Go again to mentor if needed (rare in this linear flow, but possible if structured)
-    return "logger_node" # Default flow
+        return "mentor_node" 
+    return "logger_node" 
 
 def build_graph():
     builder = StateGraph(InterviewState)
     
-    # Add nodes
+    # Конструкция графа
     builder.add_node("mentor_node", mentor_node)
     builder.add_node("interviewer_node", interviewer_node)
     builder.add_node("logger_node", logger_node)
@@ -23,7 +23,7 @@ def build_graph():
         
     builder.add_edge(START, "mentor_node")
     
-    # Conditional edge from Mentor
+    # Условный переход Mentor -> (Reporting или Interviewer)
     builder.add_conditional_edges(
         "mentor_node",
         route_mentor,
@@ -33,17 +33,7 @@ def build_graph():
         }
     )
     
-    # Interviewer -> Conditional (Mentor or Logger)? 
-    # Usually Interviewer speaks -> User answers -> Mentor analyzes.
-    # So Interviewer -> Logger -> END (wait for input) -> Start -> Mentor.
-    # If the user asks for "Interviewer decides to call mentor", implies dynamic loop:
-    # Mentor -> Interviewer -> (Decide: Ask Mentor again? or Respond to user?)
-    # If "Respond to user" -> Logger -> END.
-    
-    # But usually Interviewer Output IS the response to user.
-    # So "Call Mentor" might mean "I don't know what to ask, help me Mentor" (Internal loop).
-    
-    # Let's implement internal loop support.
+     # Условный переход Interviewer -> (Mentor или Logger)
     builder.add_conditional_edges(
         "interviewer_node",
         lambda state: "mentor_node" if state.get("call_mentor") and state.get("last_interviewer_question") == "REQUEST_MENTOR_HELP" else "logger_node",
@@ -52,11 +42,7 @@ def build_graph():
             "logger_node": "logger_node"
         }
     )
-    # Note: Simplification for now: Interviewer always goes to Logger (ends turn), 
-    # unless we architect a multi-step internal reasoning loop.
-    # For this chat-bot, the strict flow is usually easier.
-    # I will stick to Interviewer -> Logger -> END, but keep the flag in state for future logic.
-    
+    # Logger -> Interviewer    
     builder.add_edge("interviewer_node", "logger_node")
     
     # Logger -> END (Wait for next user input)

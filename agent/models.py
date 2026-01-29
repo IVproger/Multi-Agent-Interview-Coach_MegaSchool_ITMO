@@ -17,7 +17,7 @@ class RoadmapItem(BaseModel):
 
 class FinalFeedback(BaseModel):
     grade: str = Field(description="Уровень кандидата: Junior / Middle / Senior")
-    hiring_recommendation: str = Field(description="Рекомендация: Hire / No Hire / Strong Hire. На английском или транслите, но лучше как термины.")
+    hiring_recommendation: str = Field(description="Рекомендация: Нанять / Не нанимать / Сильный кандидат. На английском или транслите, но лучше как термины.")
     confidence_score: float = Field(description="Общая уверенность 0-100%")
     confirmed_skills: List[str] = Field(description="Список тем, на которые кандидат ответил правильно.")
     knowledge_gaps: List[str] = Field(description="Список тем, где кандидат ошибся или не знал.")

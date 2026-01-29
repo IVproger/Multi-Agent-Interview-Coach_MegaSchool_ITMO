@@ -9,12 +9,7 @@ class SessionMeta(TypedDict):
 
 class TurnLog(TypedDict):
     turn_id: int
-    timestamp: str
-    interviewer_question: str
-    candidate_answer: str
-    internal_thoughts: List[str] # [Interviewer]: ..., [Mentor]: ...
-    mentor_directive: str
-    feedback: Optional[Dict[str, Any]] # For immediate feedback if any
+    internal_thoughts: List[str] # [Interviewer]: ..., [Mentor]: ... (includes directive)
 
 class InterviewState(TypedDict):
     # Chat history
@@ -22,7 +17,7 @@ class InterviewState(TypedDict):
     
     # Metadata
     participant_name: str
-    session_meta: SessionMeta
+    session_meta: Optional[SessionMeta] # Make optional or ignored in final output logic
     
     # Interview progression
     turns: Annotated[List[TurnLog], operator.add]
