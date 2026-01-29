@@ -31,13 +31,14 @@ class InterviewState(TypedDict):
     # Internal state for flow control
     last_candidate_answer: str
     last_interviewer_question: str
-    mentor_directive: str
-    mentor_thoughts: str
-    interviewer_thoughts: str
+    mentor_directive: Optional[str]
+    mentor_thoughts: Optional[str]
+    interviewer_thoughts: Optional[str]
     mentor_confidence_score: float
     
     # Status
     status: str # "active", "stop_requested", "finished"
+    call_mentor: bool # New flag: Interviewer decides to call mentor
     
     # Final results
     final_feedback: Optional[Dict[str, Any]]

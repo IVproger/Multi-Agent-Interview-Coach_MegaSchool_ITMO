@@ -7,10 +7,10 @@ from langchain_community.tools import DuckDuckGoSearchResults
 import os
 from agent.state import InterviewState, TurnLog
 from agent.models import MentorOutput, FinalFeedback, RoadmapItem
-from agent.prompts import INTERVIEWER_SYSTEM_PROMPT, MENTOR_SYSTEM_PROMPT, FINAL_REPORT_SYSTEM_PROMPT
+from agent.prompts import INTERVIEWER_SYSTEM_PROMPT, MENTOR_SYSTEM_PROMPT, FINAL_REPORT_SYSTEM_PROMPT, DIRECTIVE_CONTEXT_PROMPT, DIRECTIVE_CONTEXT_PROMPT
 
 # Инициализация моделей
-interview_model = ChatOpenAI(
+interviewer_model = ChatOpenAI(
     model="openai/gpt-4o-mini", 
     api_key=os.getenv("OPENROUTER_API_KEY"),
     base_url=os.getenv("OPENROUTER_BASE_URL"),
@@ -43,6 +43,7 @@ def mentor_node(state: InterviewState):
         grade_target=meta['grade_target'],
         experience=meta['experience']
     )
+
     
     # We want to bind the structured output
     mentor_runnable = mentor_model.with_structured_output(MentorOutput)
@@ -50,26 +51,40 @@ def mentor_node(state: InterviewState):
     # Analyze the conversation so far
     # The last message is from the candidate
     # The message before that is from the interviewer
+    # MEMORY CHECK: The prompt asks to look at history.
     
     response: MentorOutput = mentor_runnable.invoke([
         SystemMessage(content=system_prompt),
         *messages
     ])
     
+    # Check for Knowledge Gaps / Wrong Answers to provide immediate correction support
+    # If correction_needed is True, we might want to append that to the directive or handle it.
+    final_directive = response.directive
+    if response.correction_needed and response.correction_details:
+        final_directive += f" [CORRECTION INFO FOR INTERVIEWER: {response.correction_details}]"
+    
     return {
-        "mentor_directive": response.directive,
+        "mentor_directive": final_directive,
         "mentor_thoughts": response.internal_thoughts,
         "mentor_confidence_score": response.confidence_score,
         "status": "stop_requested" if response.stop_interview_flag else state.get("status", "active"),
         "last_candidate_answer": candidate_answer
     }
 
+
+   
 def interviewer_node(state: InterviewState):
     """
     Interviewer agent generation.
     """
-    directive = state['mentor_directive']
+    directive = state.get('mentor_directive')
     meta = state['session_meta']
+    
+    # Logic to handle if Interviewer runs FIRST (Start) or AFTER Mentor
+    # If we just came from START, we need to generate greeting/first question.
+    # If we came from Mentor, we have a directive.
+    # If we run in a loop where Interviewer decides to call Mentor, we need to check that.
     
     system_prompt = INTERVIEWER_SYSTEM_PROMPT.format(
         position=meta['position'],
@@ -77,17 +92,38 @@ def interviewer_node(state: InterviewState):
         experience=meta['experience']
     )
     
-    directive_message = SystemMessage(content=f"ДИРЕКТИВА МЕНТОРА: {directive}")
+    messages = [SystemMessage(content=system_prompt)] + state['messages']
     
-    messages = [SystemMessage(content=system_prompt)] + state['messages'] + [directive_message]
+    if directive:
+         # Include directive if present (it drives the conversation)
+         # Using DIRECTIVE_CONTEXT_PROMPT from prompts.py would be cleaner if defined, 
+         # but for now we inline or rely on existing prompt structure.
+         # But wait, user requested DIRECTIVE_CONTEXT_PROMPT import. 
+         # I need to ensure it's imported.
+         from agent.prompts import DIRECTIVE_CONTEXT_PROMPT
+         directive_context = DIRECTIVE_CONTEXT_PROMPT.format(directive=directive)
+         messages.append(SystemMessage(content=directive_context))
     
-    response = interview_model.invoke(messages)
-       
+    # Let's create a small Pydantic model for Interviewer Output to capture thoughts
+    from pydantic import BaseModel, Field
+    class InterviewerOutput(BaseModel):
+        thought_process: str = Field(description="Internal ReAct process: Understand answer -> Check Directive -> Formulate Plan.")
+        response_text: str = Field(description="The actual response/question to the candidate.")
+        call_mentor: bool = Field(description="True if you need Mentor's help/analysis (e.g. user answered tough question). False if you continue efficiently on your own.", default=True)
+
+    interviewer_runnable = interviewer_model.with_structured_output(InterviewerOutput)
+    
+    # Invoke model
+    response: InterviewerOutput = interviewer_runnable.invoke(messages)
+    
     return {
-        "messages": [response],
-        "last_interviewer_question": response.content,
-        "interviewer_thoughts": f"Следую директиве: {directive}" 
+        "messages": [AIMessage(content=response.response_text)],
+        "last_interviewer_question": response.response_text,
+        "interviewer_thoughts": response.thought_process,
+        "call_mentor": response.call_mentor
     }
+
+
 
 def logger_node(state: InterviewState):
     """
@@ -169,7 +205,6 @@ def reporting_node(state: InterviewState):
     
     
     if response.personal_roadmap:
-        print(f"Generating links for roadmap...")
         for item in response.personal_roadmap:
             if not isinstance(item, RoadmapItem):
                 # Fallback if model parsing failed weirdly, but shouldn't happen with strict types
