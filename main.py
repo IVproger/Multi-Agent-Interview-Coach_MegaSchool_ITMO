@@ -6,6 +6,52 @@ import uuid
 from langchain_core.messages import HumanMessage, AIMessage
 from agent.graph import build_graph
 
+def format_feedback_to_text(feedback_dict):
+    """Форматирует словарь фидбэка в читаемый текстовый отчет."""
+    if not isinstance(feedback_dict, dict):
+        return str(feedback_dict)
+        
+    lines = []
+    lines.append("=== РЕЗУЛЬТАТЫ ИНТЕРВЬЮ ===")
+    lines.append(f"Грейд: {feedback_dict.get('grade', 'Не определен')}")
+    lines.append(f"Рекомендация: {feedback_dict.get('hiring_recommendation', 'Не указана')}")
+    lines.append(f"Уверенность: {feedback_dict.get('confidence_score', 0)}%")
+    
+    lines.append("\n--- Подтвержденные навыки ---")
+    skills = feedback_dict.get('confirmed_skills', [])
+    if skills:
+        for s in skills:
+            lines.append(f"• {s}")
+    else:
+        lines.append("Нет подтвержденных навыков")
+        
+    lines.append("\n--- Пробелы в знаниях ---")
+    gaps = feedback_dict.get('knowledge_gaps', [])
+    if gaps:
+        for g in gaps:
+            lines.append(f"• {g}")
+    else:
+        lines.append("Явных пробелов не выявлено")
+        
+    lines.append("\n--- Soft Skills ---")
+    lines.append(f"Ясность: {feedback_dict.get('soft_skills_clarity', 'нет данных')}")
+    lines.append(f"Честность: {feedback_dict.get('soft_skills_honesty', 'нет данных')}")
+    lines.append(f"Вовлеченность: {feedback_dict.get('soft_skills_engagement', 'нет данных')}")
+    
+    lines.append("\n--- Персональный план развития ---")
+    roadmap = feedback_dict.get('personal_roadmap', [])
+    if roadmap:
+        for i, task in enumerate(roadmap, 1):
+            lines.append(f"\n{i}. {task.get('topic', 'Тема')}")
+            lines.append(f"   Цель: {task.get('goal', '')}")
+            lines.append(f"   План: {task.get('plan', '')}")
+            if task.get('resource_link'):
+                lines.append(f"   Ресурс: {task.get('resource_link')}")
+    else:
+        lines.append("План не сформирован")
+        
+    return "\n".join(lines)
+
 def main():
     print("=== Мульти-Агентная Тренировка Интервью ===")
     
@@ -92,12 +138,17 @@ def main():
     # Логика генерации отчета
     if current_state.get("final_feedback"):
         feedback_str = current_state["final_feedback"]   
+        final_output = feedback_str
+
         try:
             feedback_dict = json.loads(feedback_str)
             print("\n=== РЕЗУЛЬТАТЫ ИНТЕРВЬЮ ===")
             print(f"Грейд: {feedback_dict.get('grade')}")
             print(f"Рекомендация: {feedback_dict.get('hiring_recommendation')}")
             print(f"Уверенность: {feedback_dict.get('confidence_score')}%")
+            
+            # Format to text
+            final_output = format_feedback_to_text(feedback_dict)
         except:
              print("\n=== РЕЗУЛЬТАТЫ ИНТЕРВЬЮ ===")
              print("Отчет получен (сырой формат).")
@@ -108,7 +159,7 @@ def main():
         log_data = {
             "participant_name": name,
             "turns": current_state["turns"],
-            "final_feedback": feedback_dict
+            "final_feedback": final_output
         }
         
         with open("interview_log.json", "w", encoding="utf-8") as f:
