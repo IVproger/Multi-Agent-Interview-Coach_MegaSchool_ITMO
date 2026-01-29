@@ -15,11 +15,7 @@ def build_graph():
     builder.add_node("interviewer_node", interviewer_node)
     builder.add_node("logger_node", logger_node)
     builder.add_node("reporting_node", reporting_node)
-    
-    # Define edges
-    # START -> mentor_node (System analyzes input)
-    # Wait, START usually implies receiving user input in the state buffer.
-    
+        
     builder.add_edge(START, "mentor_node")
     
     # Conditional edge from Mentor

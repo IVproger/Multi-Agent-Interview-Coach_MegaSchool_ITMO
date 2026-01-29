@@ -1,14 +1,10 @@
-import os
+from dotenv import load_dotenv
+load_dotenv(".env")
+
 import json
 import uuid
-from dotenv import load_dotenv
-
-load_dotenv()
-
 from langchain_core.messages import HumanMessage, AIMessage
-
 from agent.graph import build_graph
-from agent.state import InterviewState
 
 def main():
     print("=== Мульти-Агентная Тренировка Интервью ===")
@@ -16,9 +12,18 @@ def main():
     # 1. Сбор информации о кандидате
     print("\nПожалуйста, укажите ваши данные:")
     name = input("Имя: ") or "Кандидат"
-    position = input("Позиция (например, Backend Developer): ") or "Software Engineer"
-    grade = input("Целевой грейд (Junior/Middle/Senior): ") or "Junior"
-    experience = input("Кратко об опыте: ") or "Нет"
+    position = input("Позиция (например, Backend Developer): ") or "Кандидат не указал позицию"
+    
+    # Проверить что пользователь ввел корректный грейд 
+    valid_grades = ["Junior", "Middle", "Senior"]
+    while True:
+        grade = input("Целевой грейд (Junior/Middle/Senior): ") or "Junior"
+        if grade in valid_grades:
+            break
+        else:
+            print("Пожалуйста, введите корректный грейд: Junior, Middle или Senior.")
+
+    experience = input("Кратко об опыте: ") or "У меня нет опыта. И я уставил это поле "
     
     # 2. Инициализация состояния
     initial_state_config = {
@@ -41,20 +46,13 @@ def main():
     
     app = build_graph()
     
-    # Пользователь вводит первое сообщение
-    first_user_message = input("\nВведите ваше первое сообщение (или нажмите Enter, чтобы пропустить): ")
-
-    # Хак: Вставляем фиктивное сообщение, чтобы запустить цикл.
+    first_user_message = input("\nПриветсвие. Введите ваше первое сообщение (или нажмите Enter, чтобы пропустить): ")
     messages = [HumanMessage(content=first_user_message or "Здравствуйте, я готов к интервью.")]
     
     config = {"configurable": {"thread_id": str(uuid.uuid4())}}
-    
-    # Явно конструируем словарь начального состояния
     initial_state = {**initial_state_config, "messages": messages}
-     
     current_state = app.invoke(initial_state, config=config)
     
-    # Вывод первого ответа
     last_msg = current_state["messages"][-1]
     if isinstance(last_msg, AIMessage):
         print(f"\n[Interviewer]: {last_msg.content}")

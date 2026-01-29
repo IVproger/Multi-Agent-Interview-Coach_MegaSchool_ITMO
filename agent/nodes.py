@@ -3,23 +3,27 @@ import datetime
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from langchain_core.output_parsers import PydanticOutputParser
+from langchain_community.tools import DuckDuckGoSearchResults
 import os
 from agent.state import InterviewState, TurnLog
-from agent.models import MentorOutput, FinalFeedback
+from agent.models import MentorOutput, FinalFeedback, RoadmapItem
 from agent.prompts import INTERVIEWER_SYSTEM_PROMPT, MENTOR_SYSTEM_PROMPT, FINAL_REPORT_SYSTEM_PROMPT
 
-# Initialize models
-llm = ChatOpenAI(
+# Инициализация моделей
+interview_model = ChatOpenAI(
     model="openai/gpt-4o-mini", 
     api_key=os.getenv("OPENROUTER_API_KEY"),
     base_url=os.getenv("OPENROUTER_BASE_URL"),
 )
 
-llm_structured = ChatOpenAI(
+mentor_model = ChatOpenAI(
     model="openai/gpt-4o-mini", 
     api_key=os.getenv("OPENROUTER_API_KEY"),
     base_url=os.getenv("OPENROUTER_BASE_URL"),
 )
+
+# Инициализация инструмента поиска
+search_tool = DuckDuckGoSearchResults()
 
 def mentor_node(state: InterviewState):
     """
@@ -28,8 +32,7 @@ def mentor_node(state: InterviewState):
     messages = state['messages']
     candidate_answer = messages[-1].content
     
-    # Form separate history for mentor to avoid polluting the main chat context
-    # or just pass the full history.
+    # Form separate history for mentor to avoid polluting the main chat context # or just pass the full history.
     
     meta = state['session_meta']
     participant = state['participant_name']
@@ -42,7 +45,7 @@ def mentor_node(state: InterviewState):
     )
     
     # We want to bind the structured output
-    mentor_runnable = llm_structured.with_structured_output(MentorOutput)
+    mentor_runnable = mentor_model.with_structured_output(MentorOutput)
     
     # Analyze the conversation so far
     # The last message is from the candidate
@@ -74,21 +77,12 @@ def interviewer_node(state: InterviewState):
         experience=meta['experience']
     )
     
-    # Add the directive as a system instruction or a hidden prompt before generation
     directive_message = SystemMessage(content=f"ДИРЕКТИВА МЕНТОРА: {directive}")
     
     messages = [SystemMessage(content=system_prompt)] + state['messages'] + [directive_message]
     
-    response = llm.invoke(messages)
-    
-    # Extract "thought" if we were using Chain of Thought, but for now just the content
-    # The user asked for "Log agent thoughts".
-    # Since we are using a standard Chat model, the "interviewer_thoughts" might just be 
-    # implicit unless we ask the model to output them. 
-    # For now, we will treat the response content as the speech, and maybe simulate thoughts
-    # or ask the model to produce thoughts in a separate call? 
-    # Let's keep it simple: Interviewer speaks directly.
-    
+    response = interview_model.invoke(messages)
+       
     return {
         "messages": [response],
         "last_interviewer_question": response.content,
@@ -99,38 +93,9 @@ def logger_node(state: InterviewState):
     """
     Log the completed turn.
     """
-    # This node runs after Interviewer has spoken.
-    # We record the PREVIOUS exchange.
-    # Turn ID increments.
     
     turn_id = state.get('current_turn_id', 0) + 1
-    
-    # The user input was processed in this cycle. 
-    # state['last_candidate_answer'] matches state['messages'][-2] (before interviewer spoke)
-    # state['last_interviewer_question'] matches state['messages'][-1] (just spoken)
-    # Actually, the log format asks for:
-    # "interviewer_question": (The one that PROMPTED the answer? Or the one generated NOW?)
-    # Usually a turn is: Q (prev) -> A (user) -> Analysis -> Q (next).
-    # The prompt says: "Interviewer asks question -> Candidate answers -> Interviewer calls Mentor -> Mentor returns -> Interviewer adapts"
-    # So the Turn Log should likely capture:
-    # 1. The Question asked previously (or "Start" if first)
-    # 2. The Candidate Answer
-    # 3. The Internal Thoughts (Mentor)
-    # 4. The Directive
-    
-    # But wait, we just generated a NEW question.
-    # So the log entry corresponds to the interactions processed just now.
-    
-    # If this is the FIRST turn, there was no previous question recorded in state 
-    # unless we initialized it.
-    
-    # Let's assume the loop:
-    # 1. User Inputs Answer to Prev Q.
-    # 2. System processes.
-    # 3. System Outputs Next Q.
-    
-    # So we are logging the "Answer Analysis" turn.
-    
+        
     prev_q = "Начальное приветствие"
     if len(state['turns']) > 0:
         # Get the NEXT question from the previous log?
@@ -185,7 +150,6 @@ def reporting_node(state: InterviewState):
     meta = state['session_meta']
     participant = state['participant_name']
     
-    # Convert turns to text format for the model
     turns_text = json.dumps(state['turns'], indent=2, ensure_ascii=False)
     
     system_prompt = FINAL_REPORT_SYSTEM_PROMPT.format(
@@ -196,15 +160,49 @@ def reporting_node(state: InterviewState):
     
     input_text = f"Interview Transcript:\n{turns_text}"
     
-    feedback_runnable = llm_structured.with_structured_output(FinalFeedback)
+    feedback_runnable = mentor_model.with_structured_output(FinalFeedback)
     
     response: FinalFeedback = feedback_runnable.invoke([
         SystemMessage(content=system_prompt),
         HumanMessage(content=input_text)
     ])
     
+    
+    if response.personal_roadmap:
+        print(f"Generating links for roadmap...")
+        for item in response.personal_roadmap:
+            if not isinstance(item, RoadmapItem):
+                # Fallback if model parsing failed weirdly, but shouldn't happen with strict types
+                continue
+                
+            topic = item.topic
+            try:
+                # Search for documentation or articles
+                query = f"{topic} tutorial documentation {meta.get('position', 'developer')}"
+                search_results_str = search_tool.invoke(query)
+                
+                link = ""
+                try:
+                    import re
+                    # Look for http/https url in the stringified result
+                    # Exclude common noise or internal tracking if possible, but basic regex is fine for now
+                    urls = re.findall(r'(https?://[^\s,\]"\']+)', search_results_str)
+                    if urls:
+                        link = urls[0]
+                except:
+                    pass
+                
+                if link:
+                    item.resource_link = link
+                else:
+                    item.resource_link = "Не удалось найти прямую ссылку, рекомендуется поиск по теме."
+                    
+            except Exception as e:
+                item.resource_link = f"Ошибка поиска: {str(e)}"
+     
     return {
         "final_feedback": response.model_dump(),
         "status": "finished"
     }
+
 

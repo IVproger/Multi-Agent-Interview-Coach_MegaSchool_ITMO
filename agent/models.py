@@ -9,6 +9,12 @@ class MentorOutput(BaseModel):
     confidence_score: float = Field(description="Уверенность в оценке ответа (0-100).", ge=0, le=100)
     stop_interview_flag: bool = Field(description="True, если интервью следует остановить (достаточно данных или запрос пользователя).", default=False)
 
+class RoadmapItem(BaseModel):
+    topic: str = Field(description="Конкретная тема или технология.")
+    goal: str = Field(description="Чель изучения (что нужно понять).")
+    plan: str = Field(description="Пошаговый план действий (изучить доку, сделать пет-проект, и т.д.).")
+    resource_link: Optional[str] = Field(description="Ссылка на материалы (заполняется системой).", default=None)
+
 class FinalFeedback(BaseModel):
     grade: str = Field(description="Уровень кандидата: Junior / Middle / Senior")
     hiring_recommendation: str = Field(description="Рекомендация: Hire / No Hire / Strong Hire. На английском или транслите, но лучше как термины.")
@@ -19,4 +25,4 @@ class FinalFeedback(BaseModel):
     soft_skills_clarity: str = Field(description="Оценка ясности изложения. На РУССКОМ языке.")
     soft_skills_honesty: str = Field(description="Оценка честности / признания незнания. На РУССКОМ языке.")
     soft_skills_engagement: str = Field(description="Оценка вовлеченности. На РУССКОМ языке.")
-    personal_roadmap: List[str] = Field(description="Список конкретных тем/технологий для изучения.")
+    personal_roadmap: List[RoadmapItem] = Field(description="Детальный план развития.")
