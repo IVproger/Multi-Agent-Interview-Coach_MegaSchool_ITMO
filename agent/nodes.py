@@ -110,33 +110,31 @@ def logger_node(state: InterviewState):
     Log the completed turn.
     """
     
-    turn_id = state.get('current_turn_id', 0) + 1
     messages = state['messages']
     
-    # Extract messages
-    user_msg = ""
-    agent_msg = ""
+    if len(messages) < 3:
+        return {}
     
-    if len(messages) >= 2:
-        # Assuming [..., User, Agent]
-        if isinstance(messages[-1], AIMessage):
-            agent_msg = messages[-1].content
-        if isinstance(messages[-2], HumanMessage):
-             user_msg = messages[-2].content
-    elif len(messages) == 1 and isinstance(messages[0], HumanMessage):
-         user_msg = messages[0].content
+    question_msg = ""
+    answer_msg = ""
+    
+    if isinstance(messages[-3], AIMessage):
+        question_msg = messages[-3].content
+    if isinstance(messages[-2], HumanMessage):
+        answer_msg = messages[-2].content
 
     # Construct internal thoughts string
     mentor_thought = state.get('mentor_thoughts', '')
     interviewer_thought = state.get('interviewer_thoughts', '')
     
-    # Format: "[Observer]: ... [Interviewer]: ..."
-    internal_thoughts = f"[Observer]: {mentor_thought} [Interviewer]: {interviewer_thought}"
+    internal_thoughts = f"[Observer]: {mentor_thought}\n[Interviewer]: {interviewer_thought}\n"
+    
+    turn_id = state.get('current_turn_id', 0) + 1
     
     new_log: TurnLog = {
         "turn_id": turn_id,
-        "agent_visible_message": agent_msg,
-        "user_message": user_msg,
+        "agent_visible_message": question_msg, 
+        "user_message": answer_msg,            
         "internal_thoughts": internal_thoughts
     }
     
@@ -166,7 +164,6 @@ def memory_update_node(state: InterviewState):
         internal_thoughts=last_turn.get('internal_thoughts', '')
     )
     
-    # Using mentor model for summarization
     response = mentor_model.invoke([HumanMessage(content=prompt)])
     new_summary = response.content
     

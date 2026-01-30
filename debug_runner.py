@@ -16,18 +16,18 @@ LOG_DIR = "./logs"  # <--- Specify your log folder here
 def get_next_log_filename():
     """Finds the next available case number for logging in LOG_DIR."""
     os.makedirs(LOG_DIR, exist_ok=True)
-    existing_logs = glob.glob(os.path.join(LOG_DIR, "interview_log_case*.json"))
+    existing_logs = glob.glob(os.path.join(LOG_DIR, "interview_log_*.json"))
     max_num = 0
     for log in existing_logs:
         try:
-            part = os.path.basename(log).replace("interview_log_case", "").replace(".json", "")
+            part = os.path.basename(log).replace("interview_log_", "").replace(".json", "")
             if part.isdigit():
                 num = int(part)
                 if num > max_num:
                     max_num = num
         except:
             pass
-    return os.path.join(LOG_DIR, f"interview_log_case{max_num + 1}.json")
+    return os.path.join(LOG_DIR, f"interview_log_{max_num + 1}.json")
 
 def read_and_clear_input():
     """Reads content from user_input.txt and clears it if not empty."""
@@ -140,7 +140,7 @@ def main():
     config = {"configurable": {"thread_id": thread_id}}
     
     # Initial Greeting
-    initial_state = {**initial_state_config, "messages": [HumanMessage(content=user_config["user_info"]["first_message"])]}
+    initial_state = {**initial_state_config, "messages": [HumanMessage(content="Я готов начать интервью.")]}
     current_state = app.invoke(initial_state, config=config)
     
     # Write initial greeting

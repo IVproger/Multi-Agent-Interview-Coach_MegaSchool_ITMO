@@ -158,87 +158,109 @@ if st.session_state.final_report:
             del st.session_state[key]
         st.rerun()
 
-elif st.session_state.interview_active:
-    # Display chat history
-    for msg in st.session_state.messages:
-        with st.chat_message(msg["role"]):
-            st.markdown(msg["content"])
+    # Main Chat Area - Two Tabs: Chat vs Thoughts
+    tab1, tab2 = st.tabs(["💬 Диалог", "🧠 Мысли Агентов"])
+    
+    with tab1:
+        # Display chat history
+        for msg in st.session_state.messages:
+            with st.chat_message(msg["role"]):
+                st.markdown(msg["content"])
 
-    # Handle Chat Input OR Stop Trigger
-    # We use := for chat_input, but if prompt_text is set via button, we use that.
-    
-    chat_input_val = st.chat_input("Ваш ответ...")
-    
-    # Priority: Button Stop -> Chat Input
-    prompt = prompt_text if prompt_text else chat_input_val
-    
-    if prompt:
-        # 1. Add User Message
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
+        # Handle Chat Input OR Stop Trigger
+        # We use := for chat_input, but if prompt_text is set via button, we use that.
+        
+        chat_input_val = st.chat_input("Ваш ответ...")
+        
+        # Priority: Button Stop -> Chat Input
+        prompt = prompt_text if prompt_text else chat_input_val
+        
+        if prompt:
+            # 1. Add User Message
+            st.session_state.messages.append({"role": "user", "content": prompt})
+            with st.chat_message("user"):
+                st.markdown(prompt)
 
-        # 2. Invoke Graph
-        app = build_graph()
-        config = {"configurable": {"thread_id": st.session_state.thread_id}}
-        
-        # Prepare state update
-        current_state = st.session_state.graph_state
-        current_state["messages"].append(HumanMessage(content=prompt))
-        
-        with st.spinner("Интервьюер думает..."):
-            new_state = app.invoke(current_state, config=config)
-        
-        st.session_state.graph_state = new_state
-        
-        # 3. Handle Response
-        if new_state.get("status") in ["stop_requested", "finished"]:
-             # Check if we have final report
-            if new_state.get("final_feedback"):
-                try:
-                    feedback_dict = json.loads(new_state["final_feedback"])
-                    # Save raw report for download
-                    new_state['final_feedback_raw'] = feedback_dict
-                    
-                    report_md = format_feedback_to_markdown(feedback_dict)
-                    st.session_state.final_report = report_md
-                    
-                    # --- AUTO SAVE LOG (Like main.py) ---
-                    log_data = {
-                        "participant_name": new_state.get("participant_name", "Unknown"),
-                        "turns": new_state.get("turns", []),
-                        "final_feedback": "{}" .format(new_state["final_feedback"])
-                    }
+            # 2. Invoke Graph
+            app = build_graph()
+            config = {"configurable": {"thread_id": st.session_state.thread_id}}
+            
+            # Prepare state update
+            current_state = st.session_state.graph_state
+            current_state["messages"].append(HumanMessage(content=prompt))
+            
+            with st.spinner("Интервьюер думает..."):
+                new_state = app.invoke(current_state, config=config)
+            
+            st.session_state.graph_state = new_state
+            
+            # 3. Handle Response
+            if new_state.get("status") in ["stop_requested", "finished"]:
+                 # Check if we have final report
+                if new_state.get("final_feedback"):
                     try:
-                        with open("interview_log.json", "w", encoding="utf-8") as f:
-                            json.dump(log_data, f, indent=2, ensure_ascii=False)
-                        st.success("Лог сохранен в 'interview_log.json'")
+                        feedback_dict = json.loads(new_state["final_feedback"])
+                        # Save raw report for download
+                        new_state['final_feedback_raw'] = feedback_dict
+                        
+                        report_md = format_feedback_to_markdown(feedback_dict)
+                        st.session_state.final_report = report_md
+                        
+                        # --- AUTO SAVE LOG (Like main.py) ---
+                        log_data = {
+                            "participant_name": new_state.get("participant_name", "Unknown"),
+                            "turns": new_state.get("turns", []),
+                            "final_feedback": feedback_dict
+                        }
+                        try:
+                            with open("interview_log.json", "w", encoding="utf-8") as f:
+                                json.dump(log_data, f, indent=2, ensure_ascii=False)
+                            st.success("Лог сохранен в 'interview_log.json'")
+                        except Exception as e:
+                            st.error(f"Ошибка сохранения лога: {e}")
+                        # ------------------------------------
+                        
                     except Exception as e:
-                        st.error(f"Ошибка сохранения лога: {e}")
-                    # ------------------------------------
-                    
-                except Exception as e:
-                    st.error(f"Ошибка чтения отчета: {e}")
-                    st.session_state.final_report = "Ошибка генерации отчета."
+                        st.error(f"Ошибка чтения отчета: {e}")
+                        st.session_state.final_report = "Ошибка генерации отчета."
+                
+                # Check for last goodbye message
+                last_msg = new_state["messages"][-1]
+                if isinstance(last_msg, AIMessage) and not st.session_state.final_report:
+                     # If just stopping but not yet reporting (though graph should handle it)
+                     st.session_state.messages.append({"role": "assistant", "content": last_msg.content})
+                     with st.chat_message("assistant"):
+                        st.markdown(last_msg.content)
+                
+                st.session_state.interview_active = False
+                st.rerun()
+                
+            else:
+                # Continue conversation
+                last_msg = new_state["messages"][-1]
+                if isinstance(last_msg, AIMessage):
+                    st.session_state.messages.append({"role": "assistant", "content": last_msg.content})
+                    with st.chat_message("assistant"):
+                        st.markdown(last_msg.content)
+
+    with tab2:
+        st.subheader("Внутренние мысли агентов (Real-time)")
+        if st.session_state.graph_state:
+            # Display current thoughts
+            col1, col2 = st.columns(2)
+            with col1:
+                st.info(f"**Mentor (Observer):**\n\n{st.session_state.graph_state.get('mentor_thoughts', 'Wait...')}")
+            with col2:
+                st.success(f"**Interviewer:**\n\n{st.session_state.graph_state.get('interviewer_thoughts', 'Wait...')}")
             
-            # Check for last goodbye message
-            last_msg = new_state["messages"][-1]
-            if isinstance(last_msg, AIMessage) and not st.session_state.final_report:
-                 # If just stopping but not yet reporting (though graph should handle it)
-                 st.session_state.messages.append({"role": "assistant", "content": last_msg.content})
-                 with st.chat_message("assistant"):
-                    st.markdown(last_msg.content)
-            
-            st.session_state.interview_active = False
-            st.rerun()
-            
-        else:
-            # Continue conversation
-            last_msg = new_state["messages"][-1]
-            if isinstance(last_msg, AIMessage):
-                st.session_state.messages.append({"role": "assistant", "content": last_msg.content})
-                with st.chat_message("assistant"):
-                    st.markdown(last_msg.content)
+            st.divider()
+            st.markdown("### История ходов (Turns)")
+            turns = st.session_state.graph_state.get("turns", [])
+            for t in reversed(turns):
+                 with st.expander(f"Turn {t.get('turn_id', '?')}"):
+                     st.text(t.get('internal_thoughts', 'No thoughts'))
+                     st.markdown(f"**User:** {t.get('user_message')}")
+                     st.markdown(f"**System:** {t.get('agent_visible_message')}")
 
 else:
     st.info("👈 Пожалуйста, заполните данные слева и нажмите 'Начать интервью'")
