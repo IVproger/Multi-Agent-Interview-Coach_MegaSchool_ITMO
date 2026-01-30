@@ -13,32 +13,35 @@ def format_feedback_to_text(feedback_dict):
         
     lines = []
     lines.append("=== РЕЗУЛЬТАТЫ ИНТЕРВЬЮ ===")
+    
+    lines.append("\n1. Вердикт (Decision)")
     lines.append(f"Грейд: {feedback_dict.get('grade', 'Не определен')}")
     lines.append(f"Рекомендация: {feedback_dict.get('hiring_recommendation', 'Не указана')}")
     lines.append(f"Уверенность: {feedback_dict.get('confidence_score', 0)}%")
     
-    lines.append("\n--- Подтвержденные навыки ---")
+    lines.append("\n2. Анализ Hard Skills (Technical Review)")
+    lines.append("• Подтвержденные навыки:")
     skills = feedback_dict.get('confirmed_skills', [])
     if skills:
         for s in skills:
-            lines.append(f"• {s}")
+            lines.append(f"  - {s}")
     else:
-        lines.append("Нет подтвержденных навыков")
+        lines.append("  (Нет подтвержденных навыков)")
         
-    lines.append("\n--- Пробелы в знаниях ---")
+    lines.append("\n• Пробелы в знаниях:")
     gaps = feedback_dict.get('knowledge_gaps', [])
     if gaps:
         for g in gaps:
-            lines.append(f"• {g}")
+            lines.append(f"  - {g}")
     else:
-        lines.append("Явных пробелов не выявлено")
+        lines.append("  (Явных пробелов не выявлено)")
         
-    lines.append("\n--- Soft Skills ---")
+    lines.append("\n3. Анализ Soft Skills & Communication")
     lines.append(f"Ясность: {feedback_dict.get('soft_skills_clarity', 'нет данных')}")
     lines.append(f"Честность: {feedback_dict.get('soft_skills_honesty', 'нет данных')}")
     lines.append(f"Вовлеченность: {feedback_dict.get('soft_skills_engagement', 'нет данных')}")
     
-    lines.append("\n--- Персональный план развития ---")
+    lines.append("\n4. Персональный Roadmap (Next Steps)")
     roadmap = feedback_dict.get('personal_roadmap', [])
     if roadmap:
         for i, task in enumerate(roadmap, 1):
@@ -129,7 +132,12 @@ def main():
         
         # Проверяем статус
         if current_state.get("status") in ["stop_requested", "finished"]:
-            print("\n[System]: Интервью завершается...")
+            # print the last interviewer message before
+            last_msg = current_state["messages"][-1]
+            if isinstance(last_msg, AIMessage):
+                print(f"\n[Interviewer]: {last_msg.content}")
+            else:
+                print(f"\n[Interviewer]: Собеседование завершено. Спасибо за участие.")
             break
             
         last_msg = current_state["messages"][-1]

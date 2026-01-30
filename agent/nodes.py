@@ -113,23 +113,33 @@ def logger_node(state: InterviewState):
     """
     
     turn_id = state.get('current_turn_id', 0) + 1
-        
-    if len(state['turns']) > 0:
-        pass
-
+    messages = state['messages']
     
-    # messages = state['messages']
-    # if len(messages) >= 3:
-    #     prev_q = messages[-3].content
-    # elif len(messages) == 2:
-    #     prev_q = "Н/Д (Пользователь начал)"
+    # Extract messages
+    user_msg = ""
+    agent_msg = ""
+    
+    if len(messages) >= 2:
+        # Assuming [..., User, Agent]
+        if isinstance(messages[-1], AIMessage):
+            agent_msg = messages[-1].content
+        if isinstance(messages[-2], HumanMessage):
+             user_msg = messages[-2].content
+    elif len(messages) == 1 and isinstance(messages[0], HumanMessage):
+         user_msg = messages[0].content
+
+    # Construct internal thoughts string
+    mentor_thought = state.get('mentor_thoughts', '')
+    interviewer_thought = state.get('interviewer_thoughts', '')
+    
+    # Format: "[Observer]: ... [Interviewer]: ..."
+    internal_thoughts = f"[Observer]: {mentor_thought} [Interviewer]: {interviewer_thought}"
     
     new_log: TurnLog = {
         "turn_id": turn_id,
-        "internal_thoughts": [
-            f"[Interviewer]: {state.get('interviewer_thoughts', '')}",
-            f"[Mentor]: {state.get('mentor_thoughts', '')} (Directive: {state.get('mentor_directive', '')})"
-        ]
+        "agent_visible_message": agent_msg,
+        "user_message": user_msg,
+        "internal_thoughts": internal_thoughts
     }
     
     return {

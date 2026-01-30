@@ -9,7 +9,9 @@ class SessionMeta(TypedDict):
 
 class TurnLog(TypedDict):
     turn_id: int
-    internal_thoughts: List[str] # [Interviewer]: ..., [Mentor]: ... (includes directive)
+    agent_visible_message: str
+    user_message: str
+    internal_thoughts: str # Combined thoughts
 
 class InterviewState(TypedDict):
     # Chat history
