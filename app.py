@@ -103,14 +103,8 @@ with st.sidebar:
                 "last_interviewer_question": ""
             }
             
-            # Add initial system message or greeting trigger
-            # We trigger the first run to get the greeting
             app = build_graph()
             config = {"configurable": {"thread_id": st.session_state.thread_id}}
-            
-            # Initial run with a dummy start message or empty required structure
-            # To kickstart the agent, we can simulate a "Ready" signal or just invoke with initial state
-            # The original main.py asked for a greeting. Let's send a standard signal.
             initial_state = {**initial_state_config, "messages": [HumanMessage(content="Здравствуйте, я готов к интервью.")]}
             
             with st.spinner("Генерация первого вопроса..."):
@@ -118,7 +112,6 @@ with st.sidebar:
             
             st.session_state.graph_state = current_state
             
-            # Extract first AI message
             if current_state["messages"]:
                 last_msg = current_state["messages"][-1]
                 if isinstance(last_msg, AIMessage):
@@ -187,9 +180,6 @@ elif st.session_state.interview_active:
                      st.markdown(f"**User:** {t.get('user_message')}")
                      st.markdown(f"**System:** {t.get('agent_visible_message')}")
     
-    # Handle Chat Input OR Stop Trigger
-    # We use := for chat_input, but if prompt_text is set via button, we use that.
-    
     chat_input_val = st.chat_input("Ваш ответ...")
     
     # Priority: Button Stop -> Chat Input
@@ -227,7 +217,6 @@ elif st.session_state.interview_active:
                         report_md = format_feedback_to_markdown(feedback_dict)
                         st.session_state.final_report = report_md
                         
-                        # --- AUTO SAVE LOG (Like main.py) ---
                         log_data = {
                             "participant_name": new_state.get("participant_name", "Unknown"),
                             "turns": new_state.get("turns", []),
@@ -245,10 +234,8 @@ elif st.session_state.interview_active:
                         st.error(f"Ошибка чтения отчета: {e}")
                         st.session_state.final_report = "Ошибка генерации отчета."
                 
-                # Check for last goodbye message
                 last_msg = new_state["messages"][-1]
                 if isinstance(last_msg, AIMessage) and not st.session_state.final_report:
-                     # If just stopping but not yet reporting (though graph should handle it)
                      st.session_state.messages.append({"role": "assistant", "content": last_msg.content})
                      with st.chat_message("assistant"):
                         st.markdown(last_msg.content)
@@ -257,7 +244,6 @@ elif st.session_state.interview_active:
                 st.rerun()
                 
             else:
-                # Continue conversation
                 last_msg = new_state["messages"][-1]
                 if isinstance(last_msg, AIMessage):
                     st.session_state.messages.append({"role": "assistant", "content": last_msg.content})

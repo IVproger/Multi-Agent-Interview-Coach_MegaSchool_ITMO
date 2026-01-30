@@ -11,7 +11,7 @@ import yaml
 
 USER_INPUT_FILE = "user_input.txt"
 SYSTEM_OUTPUT_FILE = "system_output.txt"
-LOG_DIR = "./logs"  # <--- Specify your log folder here
+LOG_DIR = "./logs" 
 
 def get_next_log_filename():
     """Finds the next available case number for logging in LOG_DIR."""
@@ -46,7 +46,7 @@ def read_and_clear_input():
 
 def write_output(text):
     """Writes system response to system_output.txt."""
-    print(f"[System Output]: {text}") # Also print to console for visibility
+    print(f"[System Output]: {text}") 
     with open(SYSTEM_OUTPUT_FILE, "w", encoding="utf-8") as f:
         f.write(text)
 
@@ -103,10 +103,7 @@ def main():
     print("=== Debug Runner Started ===")
     print(f"Monitoring {USER_INPUT_FILE} for input...")
     print(f"Responses will be written to {SYSTEM_OUTPUT_FILE}")
-    
-    # 1. Configuration (Hardcoded for debug speed, or could be read from first input)
-    
-    
+      
     with open("user.yaml", "r", encoding="utf-8") as f:
         user_config = yaml.safe_load(f)
     

@@ -7,7 +7,6 @@ from agent.state import InterviewState, TurnLog
 from agent.models import MentorOutput, FinalFeedback, RoadmapItem
 from agent.prompts import INTERVIEWER_SYSTEM_PROMPT, MENTOR_SYSTEM_PROMPT, FINAL_REPORT_SYSTEM_PROMPT, DIRECTIVE_CONTEXT_PROMPT, DIRECTIVE_CONTEXT_PROMPT
 
-# Инициализация моделей
 try:
     interviewer_model = ChatOpenAI(
         model="openai/gpt-4o-mini", 
@@ -24,7 +23,6 @@ except Exception as e:
     print("Ошибка инициализации моделей. Проверьте переменные окружения API_KEY и BASE_URL.")
     raise e
 
-# Инициализация инструмента поиска
 search_tool = DuckDuckGoSearchResults()
 
 def mentor_node(state: InterviewState):
@@ -123,7 +121,6 @@ def logger_node(state: InterviewState):
     if isinstance(messages[-2], HumanMessage):
         answer_msg = messages[-2].content
 
-    # Construct internal thoughts string
     mentor_thought = state.get('mentor_thoughts', '')
     interviewer_thought = state.get('interviewer_thoughts', '')
     

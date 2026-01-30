@@ -11,7 +11,7 @@ class TurnLog(TypedDict):
     turn_id: int
     agent_visible_message: str
     user_message: str
-    internal_thoughts: str # Combined thoughts
+    internal_thoughts: str 
 
 def add_and_window(left: List[BaseMessage], right: List[BaseMessage]) -> List[BaseMessage]:
     """Append new messages and keep only the last 12."""
@@ -24,7 +24,7 @@ class InterviewState(TypedDict):
     
     # Metadata
     participant_name: str
-    session_meta: Optional[SessionMeta] # Make optional or ignored in final output logic
+    session_meta: Optional[SessionMeta] 
     
     # Interview progression
     turns: Annotated[List[TurnLog], operator.add]
