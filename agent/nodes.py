@@ -1,8 +1,6 @@
 import json
-import datetime
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
-from langchain_core.output_parsers import PydanticOutputParser
 from langchain_community.tools import DuckDuckGoSearchResults
 import os
 from agent.state import InterviewState, TurnLog
@@ -13,17 +11,17 @@ from agent.prompts import INTERVIEWER_SYSTEM_PROMPT, MENTOR_SYSTEM_PROMPT, FINAL
 try:
     interviewer_model = ChatOpenAI(
         model="openai/gpt-4o-mini", 
-        api_key=os.getenv("OPENROUTER_API_KEY"),
-        base_url=os.getenv("OPENROUTER_BASE_URL"),
+        api_key=os.getenv("API_KEY"),
+        base_url=os.getenv("BASE_URL"),
     )
 
     mentor_model = ChatOpenAI(
         model="openai/gpt-4o-mini", 
-        api_key=os.getenv("OPENROUTER_API_KEY"),
-        base_url=os.getenv("OPENROUTER_BASE_URL"),
+        api_key=os.getenv("API_KEY"),
+        base_url=os.getenv("BASE_URL"),
     )
 except Exception as e:
-    print("Ошибка инициализации моделей. Проверьте переменные окружения OPENROUTER_API_KEY и OPENROUTER_BASE_URL.")
+    print("Ошибка инициализации моделей. Проверьте переменные окружения API_KEY и BASE_URL.")
     raise e
 
 # Инициализация инструмента поиска
@@ -147,6 +145,34 @@ def logger_node(state: InterviewState):
         "current_turn_id": turn_id
     }
 
+def memory_update_node(state: InterviewState):
+    """
+    Updates the working memory (summary) based on the latest turn.
+    """
+    from agent.prompts import SUMMARY_PROMPT
+    
+    # Get latest turn info
+    if not state.get('turns'):
+        return {} # No turns yet
+        
+    last_turn = state['turns'][-1]
+    
+    current_summary = state.get('summary') or "Начало интервью."
+    
+    prompt = SUMMARY_PROMPT.format(
+        current_summary=current_summary,
+        user_message=last_turn.get('user_message', ''),
+        agent_message=last_turn.get('agent_visible_message', ''),
+        internal_thoughts=last_turn.get('internal_thoughts', '')
+    )
+    
+    # Using mentor model for summarization
+    response = mentor_model.invoke([HumanMessage(content=prompt)])
+    new_summary = response.content
+    
+    return {
+        "summary": new_summary
+    }
 
 def reporting_node(state: InterviewState):
     """
@@ -155,25 +181,22 @@ def reporting_node(state: InterviewState):
     meta = state['session_meta']
     participant = state['participant_name']
     
+    # Use summary + turns for final report
     turns_text = json.dumps(state['turns'], indent=2, ensure_ascii=False)
+    summary_text = state.get('summary', 'Нет саммари.')
     
     system_prompt = FINAL_REPORT_SYSTEM_PROMPT.format(
         participant_name=participant,
         position=meta['position'],
-        grade_target=meta['grade_target']
+        grade_target=meta['grade_target'],
+        summary=summary_text,
+        transcript=turns_text
     )
-    
-    input_text = f"Interview Transcript:\n{turns_text}"
-    
-    feedback_runnable = mentor_model.with_structured_output(FinalFeedback)
-    
-    input_text += "\n\nВАЖНО: Сгенерируй детальный 'personal_roadmap' (список RoadmapItem) для устранения всех выявленных пробелов. Если есть 'knowledge_gaps', roadmap НЕ должен быть пустым."
 
+    feedback_runnable = mentor_model.with_structured_output(FinalFeedback)
     response: FinalFeedback = feedback_runnable.invoke([
-        SystemMessage(content=system_prompt),
-        HumanMessage(content=input_text)
+        SystemMessage(content=system_prompt)
     ])
-    
     
     if response.personal_roadmap:
         for item in response.personal_roadmap:

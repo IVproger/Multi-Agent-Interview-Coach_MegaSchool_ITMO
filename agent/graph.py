@@ -1,8 +1,8 @@
 from langgraph.graph import StateGraph, END, START
 from agent.state import InterviewState
-from agent.nodes import mentor_node, interviewer_node, logger_node, reporting_node
+from agent.nodes import mentor_node, interviewer_node, logger_node, reporting_node, memory_update_node
 
-def route_logger(state: InterviewState):
+def route_memory(state: InterviewState):
     if state.get("status") == "stop_requested":
         return "reporting_node"
     return END
@@ -14,6 +14,7 @@ def build_graph():
     builder.add_node("mentor_node", mentor_node)
     builder.add_node("interviewer_node", interviewer_node)
     builder.add_node("logger_node", logger_node)
+    builder.add_node("memory_update_node", memory_update_node)
     builder.add_node("reporting_node", reporting_node)
         
     builder.add_edge(START, "mentor_node")
@@ -24,10 +25,13 @@ def build_graph():
     # Interviewer -> Logger
     builder.add_edge("interviewer_node", "logger_node")
     
-    # Logger -> Reporting (if stopping) OR End
+    # Logger -> Memory Update
+    builder.add_edge("logger_node", "memory_update_node")
+    
+    # Memory Update -> Reporting (if stopping) OR End
     builder.add_conditional_edges(
-        "logger_node",
-        route_logger,
+        "memory_update_node",
+        route_memory,
         {
             "reporting_node": "reporting_node",
             END: END

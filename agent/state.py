@@ -13,9 +13,14 @@ class TurnLog(TypedDict):
     user_message: str
     internal_thoughts: str # Combined thoughts
 
+def add_and_window(left: List[BaseMessage], right: List[BaseMessage]) -> List[BaseMessage]:
+    """Append new messages and keep only the last 12."""
+    formatted_list = left + right
+    return formatted_list[-12:]
+
 class InterviewState(TypedDict):
-    # Chat history
-    messages: Annotated[List[BaseMessage], operator.add]
+    # Chat history (Short-Term Memory: Last 12 messages)
+    messages: Annotated[List[BaseMessage], add_and_window]
     
     # Metadata
     participant_name: str
@@ -24,6 +29,9 @@ class InterviewState(TypedDict):
     # Interview progression
     turns: Annotated[List[TurnLog], operator.add]
     current_turn_id: int
+    
+    # Working Memory / Summary
+    summary: str 
     
     # Internal state for flow control
     last_candidate_answer: str

@@ -157,6 +157,7 @@ def main():
             
             # Format to text
             final_output = format_feedback_to_text(feedback_dict)
+            print(final_output)
         except:
              print("\n=== РЕЗУЛЬТАТЫ ИНТЕРВЬЮ ===")
              print("Отчет получен (сырой формат).")
