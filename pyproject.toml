@@ -15,4 +15,5 @@ dependencies = [
     "langgraph>=1.0.7",
     "openai>=2.16.0",
     "pillow>=12.1.0",
+    "streamlit>=1.53.1",
 ]
