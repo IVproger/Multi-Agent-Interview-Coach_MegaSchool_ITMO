@@ -16,10 +16,9 @@ try:
     )
 
     mentor_model = ChatOpenAI(
-        # model="openai/gpt-5.1", 
         model="openai/gpt-4o-mini",
         api_key=os.getenv("API_KEY"),
-        base_url=os.getenv("BASE_URL"),
+        base_url=os.getenv("BASE_URL")
     )
 except Exception as e:
     print("Ошибка инициализации моделей. Проверьте переменные окружения API_KEY и BASE_URL.")
