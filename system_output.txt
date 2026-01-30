@@ -1,1 +1,1 @@
-INTERVIEW FINISHED. Log saved to ./logs/interview_log_4.json
+INTERVIEW FINISHED. Log saved to ./logs/interview_log_1.json

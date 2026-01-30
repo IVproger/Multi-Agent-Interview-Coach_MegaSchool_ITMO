@@ -158,6 +158,7 @@ if st.session_state.final_report:
             del st.session_state[key]
         st.rerun()
 
+elif st.session_state.interview_active:
     # Main Chat Area - Two Tabs: Chat vs Thoughts
     tab1, tab2 = st.tabs(["💬 Диалог", "🧠 Мысли Агентов"])
     
@@ -166,16 +167,36 @@ if st.session_state.final_report:
         for msg in st.session_state.messages:
             with st.chat_message(msg["role"]):
                 st.markdown(msg["content"])
-
-        # Handle Chat Input OR Stop Trigger
-        # We use := for chat_input, but if prompt_text is set via button, we use that.
         
-        chat_input_val = st.chat_input("Ваш ответ...")
-        
-        # Priority: Button Stop -> Chat Input
-        prompt = prompt_text if prompt_text else chat_input_val
-        
-        if prompt:
+    with tab2:
+        st.subheader("Внутренние мысли агентов (Real-time)")
+        if st.session_state.graph_state:
+            # Display current thoughts
+            col1, col2 = st.columns(2)
+            with col1:
+                st.info(f"**Mentor (Observer):**\n\n{st.session_state.graph_state.get('mentor_thoughts', 'Wait...')}")
+            with col2:
+                st.success(f"**Interviewer:**\n\n{st.session_state.graph_state.get('interviewer_thoughts', 'Wait...')}")
+            
+            st.divider()
+            st.markdown("### История ходов (Turns)")
+            turns = st.session_state.graph_state.get("turns", [])
+            for t in reversed(turns):
+                 with st.expander(f"Turn {t.get('turn_id', '?')}"):
+                     st.text(t.get('internal_thoughts', 'No thoughts'))
+                     st.markdown(f"**User:** {t.get('user_message')}")
+                     st.markdown(f"**System:** {t.get('agent_visible_message')}")
+    
+    # Handle Chat Input OR Stop Trigger
+    # We use := for chat_input, but if prompt_text is set via button, we use that.
+    
+    chat_input_val = st.chat_input("Ваш ответ...")
+    
+    # Priority: Button Stop -> Chat Input
+    prompt = prompt_text if prompt_text else chat_input_val
+    
+    if prompt:
+        with tab1:
             # 1. Add User Message
             st.session_state.messages.append({"role": "user", "content": prompt})
             with st.chat_message("user"):
@@ -242,25 +263,8 @@ if st.session_state.final_report:
                     st.session_state.messages.append({"role": "assistant", "content": last_msg.content})
                     with st.chat_message("assistant"):
                         st.markdown(last_msg.content)
-
-    with tab2:
-        st.subheader("Внутренние мысли агентов (Real-time)")
-        if st.session_state.graph_state:
-            # Display current thoughts
-            col1, col2 = st.columns(2)
-            with col1:
-                st.info(f"**Mentor (Observer):**\n\n{st.session_state.graph_state.get('mentor_thoughts', 'Wait...')}")
-            with col2:
-                st.success(f"**Interviewer:**\n\n{st.session_state.graph_state.get('interviewer_thoughts', 'Wait...')}")
-            
-            st.divider()
-            st.markdown("### История ходов (Turns)")
-            turns = st.session_state.graph_state.get("turns", [])
-            for t in reversed(turns):
-                 with st.expander(f"Turn {t.get('turn_id', '?')}"):
-                     st.text(t.get('internal_thoughts', 'No thoughts'))
-                     st.markdown(f"**User:** {t.get('user_message')}")
-                     st.markdown(f"**System:** {t.get('agent_visible_message')}")
+                
+                st.rerun()
 
 else:
     st.info("👈 Пожалуйста, заполните данные слева и нажмите 'Начать интервью'")

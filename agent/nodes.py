@@ -16,7 +16,8 @@ try:
     )
 
     mentor_model = ChatOpenAI(
-        model="openai/gpt-4o-mini", 
+        # model="openai/gpt-5.1", 
+        model="openai/gpt-4o-mini",
         api_key=os.getenv("API_KEY"),
         base_url=os.getenv("BASE_URL"),
     )
