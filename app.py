@@ -207,7 +207,7 @@ elif st.session_state.interview_active:
                     log_data = {
                         "participant_name": new_state.get("participant_name", "Unknown"),
                         "turns": new_state.get("turns", []),
-                        "final_feedback": feedback_dict
+                        "final_feedback": "{}" .format(new_state["final_feedback"])
                     }
                     try:
                         with open("interview_log.json", "w", encoding="utf-8") as f:
